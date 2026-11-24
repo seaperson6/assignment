@@ -82,6 +82,42 @@ def transitive_closure(matrix):
     return closed
 
 
+def equivalence_closure(matrix):
+    """반사·대칭·추이 폐포를 적용해 최소 동치 폐포를 구한다."""
+    return transitive_closure(
+        symmetric_closure(
+            reflexive_closure(matrix)
+        )
+    )
+
+
+def minimum_generating_relation(matrix):
+    """원래 관계의 부분집합 중 동치 폐포가 같은 최소 관계를 구한다."""
+    parent = list(range(SIZE))
+    result = [[0] * SIZE for _ in range(SIZE)]
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i in range(SIZE):
+        for j in range(SIZE):
+            if matrix[i][j] == 0:
+                continue
+
+            root_i = find(i)
+            root_j = find(j)
+
+            # 서로 다른 두 동치류를 연결하는 순서쌍만 남긴다.
+            if root_i != root_j:
+                parent[root_j] = root_i
+                result[i][j] = 1
+
+    return result
+
+
 def equivalence_classes(matrix):
     if properties(matrix) != (True, True, True):
         raise ValueError("동치류는 동치관계에 대해서만 정의합니다.")
@@ -124,7 +160,35 @@ def display_properties(matrix):
         print("동치관계: X")
 
 
-def run(matrix):
+def display_minimum_generator(matrix):
+    minimum = minimum_generating_relation(matrix)
+
+    kept = [
+        (i + 1, j + 1)
+        for i in range(SIZE)
+        for j in range(SIZE)
+        if minimum[i][j] == 1
+    ]
+
+    removable = [
+        (i + 1, j + 1)
+        for i in range(SIZE)
+        for j in range(SIZE)
+        if matrix[i][j] == 1 and minimum[i][j] == 0
+    ]
+
+    print("\n[추가 기능: 동치 폐포를 유지하는 최소 생성 관계]")
+    print(f"남긴 순서쌍: {kept if kept else '없음'}")
+    print(f"제거 가능한 순서쌍: {removable if removable else '없음'}")
+
+    print("최소 생성 관계의 행렬:")
+    display_matrix(minimum)
+
+    same = equivalence_closure(matrix) == equivalence_closure(minimum)
+    print(f"동치 폐포 일치: {'O' if same else 'X'}")
+
+
+def run(matrix, show_basis=False):
     print("\n[입력 관계 행렬]")
     display_matrix(matrix)
 
@@ -132,21 +196,23 @@ def run(matrix):
     display_properties(matrix)
 
     if properties(matrix) == (True, True, True):
-        print("\n이미 동치관계이므로 폐포 계산을 생략합니다.")
-        return
+        print("\n이미 동치관계이므로 세 폐포 계산을 생략합니다.")
+    else:
+        for title, closure in (
+            ("반사", reflexive_closure),
+            ("대칭", symmetric_closure),
+            ("추이", transitive_closure),
+        ):
+            result = closure(matrix)
 
-    for title, closure in (
-        ("반사", reflexive_closure),
-        ("대칭", symmetric_closure),
-        ("추이", transitive_closure),
-    ):
-        result = closure(matrix)
+            print(f"\n[{title} 폐포의 행렬]")
+            display_matrix(result)
 
-        print(f"\n[{title} 폐포의 행렬]")
-        display_matrix(result)
+            print(f"[{title} 폐포의 재판별]")
+            display_properties(result)
 
-        print(f"[{title} 폐포의 재판별]")
-        display_properties(result)
+    if show_basis:
+        display_minimum_generator(matrix)
 
 
 DEMO_CASES = {
@@ -177,20 +243,8 @@ DEMO_CASES = {
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--demo-case",
-        type=int,
-        choices=DEMO_CASES,
-        help="보고서에 사용한 입력 사례 1~4",
-    )
-    args = parser.parse_args()
-
-    if args.demo_case is None:
-        run(read_matrix())
-    else:
-        print(f"$ python report2_relation.py --demo-case {args.demo_case}")
-        run(DEMO_CASES[args.demo_case])
+    matrix = read_matrix()
+    run(matrix, show_basis=True)
 
 
 if __name__ == "__main__":
